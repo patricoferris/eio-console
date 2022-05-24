@@ -27,6 +27,8 @@ let runtime_counter_name counter =
 
 let runtime_phase_name phase =
   match phase with
+  | EV_COMPACT_MAIN -> "COMPACT_MAIN"
+  | EV_COMPACT_RECOMPACT -> "COMPACT_RECOMPACT"
   | EV_EXPLICIT_GC_SET -> "EXPLICIT_GC_SET"
   | EV_EXPLICIT_GC_STAT -> "EXPLICIT_GC_STAT"
   | EV_EXPLICIT_GC_MINOR -> "EXPLICIT_GC_MINOR"
@@ -34,13 +36,30 @@ let runtime_phase_name phase =
   | EV_EXPLICIT_GC_FULL_MAJOR -> "EXPLICIT_GC_FULL_MAJOR"
   | EV_EXPLICIT_GC_COMPACT -> "EXPLICIT_GC_COMPACT"
   | EV_MAJOR -> "MAJOR"
+  | EV_MAJOR_ROOTS -> "MAJOR_ROOTS"
   | EV_MAJOR_SWEEP -> "MAJOR_SWEEP"
   | EV_MAJOR_MARK_ROOTS -> "MAJOR_MARK_ROOTS"
+  | EV_MAJOR_MARK_MAIN -> "MAJOR_MARK_MAIN"
+  | EV_MAJOR_MARK_FINAL -> "MAJOR_MARK_FINAL"
   | EV_MAJOR_MARK -> "MAJOR_MARK"
+  | EV_MAJOR_MARK_GLOBAL_ROOTS_SLICE -> "MAJOR_MARK_GLOBAL_ROOTS_SLICE"
+  | EV_MAJOR_ROOTS_GLOBAL -> "MAJOR_ROOTS_GLOBAL"
+  | EV_MAJOR_ROOTS_DYNAMIC_GLOBAL -> "MAJOR_ROOTS_DYNAMIC_GLOBAL"
+  | EV_MAJOR_ROOTS_LOCAL -> "MAJOR_ROOTS_LOCAL"
+  | EV_MAJOR_ROOTS_C -> "MAJOR_ROOTS_C"
+  | EV_MAJOR_ROOTS_FINALISED -> "MAJOR_ROOTS_FINALISED"
+  | EV_MAJOR_ROOTS_MEMPROF -> "MAJOR_ROOTS_MEMPROF"
+  | EV_MAJOR_ROOTS_HOOK -> "MAJOR_ROOTS_HOOK"
+  | EV_MAJOR_CHECK_AND_COMPACT -> "MAJOR_CHECK_AND_COMPACT"
   | EV_MINOR -> "MINOR"
   | EV_MINOR_LOCAL_ROOTS -> "MINOR_LOCAL_ROOTS"
+  | EV_MINOR_REF_TABLES -> "MINOR_REF_TABLES"
+  | EV_MINOR_COPY -> "MINOR_COPY"
+  | EV_MINOR_UPDATE_WEAK -> "MINOR_UPDATE_WEAK"
   | EV_MINOR_FINALIZED -> "MINOR_FINALIZED"
   | EV_EXPLICIT_GC_MAJOR_SLICE -> "EXPLICIT_GC_MAJOR_SLICE"
+  | EV_DOMAIN_SEND_INTERRUPT -> "DOMAIN_SEND_INTERRUPT"
+  | EV_DOMAIN_IDLE_WAIT -> "DOMAIN_IDLE_WAIT"
   | EV_FINALISE_UPDATE_FIRST -> "FINALISE_UPDATE_FIRST"
   | EV_FINALISE_UPDATE_LAST -> "FINALISE_UPDATE_LAST"
   | EV_INTERRUPT_REMOTE -> "INTERRUPT_REMOTE"
@@ -114,29 +133,46 @@ let tracing_func ws path_pid () =
   let ts_to_ms ts =
     Int64.(to_float @@ div (Timestamp.to_int64 ts) (of_int 1000))
   in
-  let runtime_begin domain_id ts phase =
+  let runtime_begin (domain_id : Domain.id) ts phase =
     send_data ws
       (Events.System
          (`Phase
-           { name = runtime_phase_name phase; ts = ts_to_ms ts; domain_id }))
+           {
+             name = runtime_phase_name phase;
+             ts = ts_to_ms ts;
+             domain_id = (domain_id :> int);
+           }))
   in
-  let runtime_end domain_id ts phase =
+  let runtime_end (domain_id : Domain.id) ts phase =
     send_data ws
       (Events.System
          (`Phase
-           { name = runtime_phase_name phase; ts = ts_to_ms ts; domain_id }))
+           {
+             name = runtime_phase_name phase;
+             ts = ts_to_ms ts;
+             domain_id = (domain_id :> int);
+           }))
   in
-  let runtime_counter domain_id ts counter value =
+  let runtime_counter (domain_id : Domain.id) ts counter value =
     send_data ws
       (Events.System
          (`Counter
-           ( { name = runtime_counter_name counter; ts = ts_to_ms ts; domain_id },
+           ( {
+               name = runtime_counter_name counter;
+               ts = ts_to_ms ts;
+               domain_id = (domain_id :> int);
+             },
              value )))
   in
-  let lifecycle domain_id ts l _ =
+  let lifecycle (domain_id : Domain.id) ts l _ =
     send_data ws
       (Events.System
-         (`Lifecycle { name = lifecycle_name l; ts = ts_to_ms ts; domain_id }))
+         (`Lifecycle
+           {
+             name = lifecycle_name l;
+             ts = ts_to_ms ts;
+             domain_id = (domain_id :> int);
+           }))
   in
   let callbacks =
     Callbacks.create ~runtime_begin ~runtime_end ~runtime_counter ~lifecycle ()
